@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "api/reply.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/reply", "dest": "api/reply.js" },
+    { "src": "/(.*)", "dest": "/$1" }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "m6c-reply-assistant",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI 回覆助手 - Powered by MiniMax + Vercel Serverless",
+  "scripts": {
+    "dev": "vercel dev"
+  }
+}

@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🎯 AI 回覆助手 · M6C</title>
+<style>
+  :root{
+    --bg:#0e1424;
+    --surface:#161d2e;
+    --surface-2:#1e2638;
+    --line:#2a334a;
+    --ink:#e6ecf7;
+    --ink-2:#a8b3cf;
+    --muted:#6b7593;
+    --primary:#7d97ff;
+    --primary-2:#a4b9ff;
+    --accent:#ff5577;
+    --accent-2:#ff8497;
+    --good:#34d399;
+    --warn:#fbbf24;
+    --pink:#ec4899;
+    --violet:#a78bfa;
+    --cyan:#22d3ee;
+    --shadow:0 20px 60px rgba(0,0,0,.4),0 4px 12px rgba(0,0,0,.3);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:"PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif;
+    -webkit-font-smoothing:antialiased;}
+  body{
+    background:
+      radial-gradient(circle at 12% 0%,rgba(124,151,255,.08) 0,transparent 45%),
+      radial-gradient(circle at 88% 100%,rgba(236,72,153,.06) 0,transparent 45%),
+      var(--bg);
+    min-height:100vh;
+  }
+  .container{max-width:880px;margin:0 auto;padding:36px 24px 80px}
+  header{text-align:center;margin-bottom:36px}
+  header .badge{display:inline-block;background:var(--surface-2);color:var(--primary-2);
+    padding:5px 14px;border-radius:99px;font-size:11px;letter-spacing:.12em;
+    border:1px solid var(--line);margin-bottom:14px;text-transform:uppercase}
+  header h1{font-size:36px;margin:0;font-weight:800;letter-spacing:-.02em;
+    background:linear-gradient(135deg,var(--primary) 0%,var(--pink) 100%);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+  header .sub{color:var(--ink-2);font-size:14px;margin-top:8px;}
+
+  section.card{background:var(--surface);border:1px solid var(--line);
+    border-radius:18px;padding:24px;margin-bottom:18px;box-shadow:var(--shadow);}
+  .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.12em;
+    color:var(--muted);font-weight:700;margin-bottom:8px;}
+  textarea,input[type="text"]{width:100%;background:var(--surface-2);
+    border:1px solid var(--line);color:var(--ink);border-radius:10px;
+    padding:12px 14px;font-size:14px;font-family:inherit;resize:vertical;line-height:1.6;}
+  textarea{min-height:90px;font-size:15px}
+  textarea:focus,input:focus{outline:none;border-color:var(--primary);
+    box-shadow:0 0 0 3px rgba(125,151,255,.15)}
+
+  .row{display:flex;gap:12px;align-items:center;margin-top:8px}
+  .counter{font-size:11px;color:var(--muted);margin-top:4px;text-align:right}
+  .counter.over{color:var(--accent)}
+
+  /* 風格選擇 */
+  .styles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
+  @media (max-width:600px){.styles{grid-template-columns:repeat(2,1fr)}}
+  .style-opt{
+    background:var(--surface-2);border:2px solid var(--line);
+    border-radius:12px;padding:14px 10px;cursor:pointer;
+    text-align:center;transition:all .15s;position:relative;
+  }
+  .style-opt:hover{border-color:var(--primary)}
+  .style-opt.active{border-color:var(--primary);
+    background:rgba(125,151,255,.08)}
+  .style-opt .emoji{font-size:22px;display:block;margin-bottom:6px}
+  .style-opt .name{font-weight:700;font-size:13px}
+  .style-opt .hint{font-size:10px;color:var(--muted);margin-top:3px}
+
+  /* 第 6 格自訂風格 */
+  .style-opt.custom{background:linear-gradient(135deg,var(--surface-2),var(--surface-2));}
+
+  /* 自訂 prompt 區 */
+  #customPanel{display:none;margin-top:10px}
+  #customPanel.show{display:block}
+
+  /* 送出按鈕 */
+  .btn-primary{width:100%;margin-top:18px;padding:14px;
+    background:linear-gradient(135deg,var(--primary) 0%,var(--accent) 100%);
+    color:#fff;font-size:15px;font-weight:700;border:none;border-radius:12px;
+    cursor:pointer;letter-spacing:.04em;
+    transition:transform .15s,box-shadow .15s;font-family:inherit;}
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 12px 32px rgba(125,151,255,.35)}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+  /* 結果區 */
+  #resultPanel{display:none}
+  #resultPanel.show{display:block}
+  .result-box{background:linear-gradient(135deg,rgba(125,151,255,.05),rgba(236,72,153,.05));
+    border:1px solid var(--line);border-radius:14px;padding:20px;margin-top:14px;
+    white-space:pre-wrap;line-height:1.7;font-size:15px;color:var(--ink);
+    min-height:80px;font-family:inherit;}
+  .result-box.empty{display:flex;align-items:center;justify-content:center;color:var(--muted);}
+
+  /* 動作列 */
+  .actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .btn-mini{padding:8px 14px;background:var(--surface-2);color:var(--ink);
+    border:1px solid var(--line);border-radius:8px;font-size:13px;
+    cursor:pointer;font-family:inherit;font-weight:600;}
+  .btn-mini:hover{border-color:var(--primary);color:var(--primary)}
+  .btn-mini.copied{background:var(--good);color:#0e1424;border-color:var(--good)}
+
+  /* 載入動畫 */
+  .loading{display:inline-block;width:14px;height:14px;border:2px solid var(--primary);
+    border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;
+    vertical-align:middle;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* 歷史 */
+  .history-list{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+  .hist-row{background:var(--surface-2);border:1px solid var(--line);
+    border-radius:10px;padding:12px 14px;font-size:13px;cursor:pointer;
+    transition:border .15s;}
+  .hist-row:hover{border-color:var(--primary)}
+  .hist-row .meta{color:var(--muted);font-size:11px;margin-bottom:4px;display:flex;justify-content:space-between}
+  .hist-row .q{color:var(--ink-2);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hist-row .a{color:var(--ink);font-weight:600}
+
+  /* 工具列 */
+  .toolbar{display:flex;gap:8px;justify-content:flex-end;margin-bottom:14px}
+  .tool-btn{font-size:11px;padding:5px 10px;background:transparent;
+    color:var(--muted);border:1px solid var(--line);border-radius:6px;cursor:pointer;}
+
+  /* toast */
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--good);color:#0e1424;padding:10px 18px;border-radius:10px;
+    font-size:13px;font-weight:700;opacity:0;transition:all .25s;
+    box-shadow:var(--shadow);pointer-events:none;z-index:1000;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* 微調 */
+  .refine{display:flex;gap:6px;margin-top:10px}
+  .refine input{flex:1;background:var(--surface-2);border:1px solid var(--line);
+    color:var(--ink);border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;}
+  .refine button{padding:8px 14px;background:var(--surface-2);
+    border:1px solid var(--line);border-radius:8px;color:var(--primary);
+    cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;}
+  .refine button:hover{border-color:var(--primary)}
+
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:40px}
+  footer code{background:var(--surface-2);padding:2px 6px;border-radius:4px;font-size:11px}
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <span class="badge">M6C · AI 回覆助手</span>
+  <h1>把你的回覆，升級成想要的那種</h1>
+  <p class="sub">貼上對方訊息 → 選風格 → 拿到專業建議回覆 → 複製貼上給對方</p>
+</header>
+
+<!-- 1. 對方訊息 -->
+<section class="card">
+  <div class="lbl">💬 對方說的話（必填）</div>
+  <textarea id="herMessage" placeholder="把對方傳給你的訊息貼在這裡…&#10;例：你今天怎麼那麼晚才回我？"></textarea>
+  <div class="counter"><span id="charCount">0</span> / 1000</div>
+</section>
+
+<!-- 2. 你的語境 -->
+<section class="card">
+  <div class="lbl">📝 補充你的處境（選填）</div>
+  <textarea id="myContext" placeholder="告訴 AI 你們的關係 & 你的處境…&#10;例：在加班，想表現得體貼又成熟" style="min-height:60px"></textarea>
+</section>
+
+<!-- 3. 風格選擇 -->
+<section class="card">
+  <div class="lbl">🎭 選擇回覆風格</div>
+  <div class="styles" id="styles">
+    <div class="style-opt" data-style="formal">
+      <span class="emoji">📋</span><span class="name">正經</span>
+      <div class="hint">正式得體</div>
+    </div>
+    <div class="style-opt" data-style="eq">
+      <span class="emoji">🧠</span><span class="name">高 EQ</span>
+      <div class="hint">共情安撫</div>
+    </div>
+    <div class="style-opt" data-style="wise">
+      <span class="emoji">💡</span><span class="name">智慧</span>
+      <div class="hint">深度巧思</div>
+    </div>
+    <div class="style-opt" data-style="humor">
+      <span class="emoji">😏</span><span class="name">幽默</span>
+      <div class="hint">輕鬆逗趣</div>
+    </div>
+    <div class="style-opt" data-style="flirty">
+      <span class="emoji">🔥</span><span class="name">挑逗</span>
+      <div class="hint">曖昧心跳</div>
+    </div>
+    <div class="style-opt custom" data-style="custom">
+      <span class="emoji">✨</span><span class="name">自訂</span>
+      <div class="hint">指定風格</div>
+    </div>
+  </div>
+
+  <div id="customPanel">
+    <div class="lbl" style="margin-top:14px">✨ 自訂風格描述</div>
+    <input type="text" id="customStyle" placeholder="例：撒嬌一點 / 故意冷淡 / 老江湖世故">
+  </div>
+</section>
+
+<button class="btn-primary" id="generateBtn">🚀 幫我想回覆</button>
+
+<!-- 結果 -->
+<section class="card" id="resultPanel">
+  <div class="toolbar">
+    <button class="tool-btn" id="clearBtn">🗑 清空</button>
+  </div>
+  <div class="lbl">🎁 AI 建議回覆</div>
+  <div class="result-box" id="resultBox"></div>
+
+  <div class="actions">
+    <button class="btn-mini" id="regenBtn">🔄 再來一個版本</button>
+    <button class="btn-mini" id="copyBtn">📋 複製</button>
+    <button class="btn-mini" id="saveBtn">💾 存到歷史</button>
+  </div>
+
+  <div class="lbl" style="margin-top:18px">🎛 不滿意？告訴 AI 怎麼修</div>
+  <div class="refine">
+    <input type="text" id="refineInput" placeholder="例：再溫柔一點 / 字數縮短 / 換個說法 / 加個表情符號">
+    <button id="refineBtn">修改</button>
+  </div>
+</section>
+
+<!-- 歷史 -->
+<section class="card">
+  <div class="lbl">📚 歷史記錄（最近 10 筆，本機儲存）</div>
+  <div class="history-list" id="historyList">
+    <div style="color:var(--muted);font-size:13px;text-align:center;padding:14px">
+      還沒有歷史記錄
+    </div>
+  </div>
+</section>
+
+<footer>
+  Powered by <code>MiniMax-M3</code> · 本機儲存歷史資料 · API Key 設定在程式碼頂端
+</footer>
+
+</div>
+
+<div class="toast" id="toast">已複製</div>
+
+<script>
+/* ════════════════════════════════════════════
+   CONFIG — 部署到 Vercel 之後, 由 /api/reply 處理真正的 MiniMax 呼叫
+   前端只傳「訊息 + 風格」, API Key 安全地藏在 Vercel 後端
+   ════════════════════════════════════════════ */
+const API_ENDPOINT = "/api/reply";  // 本機/部署都走這個路徑
+const MODEL = "MiniMax-M3";
+
+/* ════════════════════════════════════════════
+   STYLE PROMPTS
+   ════════════════════════════════════════════ */
+const STYLE_PROMPTS = {
+  formal: `你是「正式得體」回覆專家。給使用者 3 個版本，語氣專業、禮貌、措辭中性。適合：工作前輩、長輩、重要客戶、還沒很熟的對象。`,
+  eq: `你是「高情商」回覆專家。給使用者 3 個版本，語氣溫暖、能讀懂對方背後的情緒。先安撫或共情，再回應。重點：給對方留面子、不掃興。適合：對方在抱怨、撒嬌、試探你的反應。`,
+  wise: `你是「有智慧」回覆專家。給使用者 3 個版本，語言有深度、有隱喻或金句感。用簡短一句讓人回味。不浮誇、不油膩。適合：想讓對方覺得你「有想法」、不一般的人。`,
+  humor: `你是「幽默風趣」回覆專家。給使用者 3 個版本，輕鬆、自嘲、會玩諧音或腦筋急轉彎。不低俗、不冒犯。讓對方笑出來或會心一笑。適合：朋友、戀人日常、化解尷尬。`,
+  flirty: `你是「曖昧挑逗」回覆專家。給使用者 3 個版本，語氣曖昧、心跳感、留伏筆讓對方想回。不要太露骨、保持神秘與克制。適合：曖昧期、想升溫關係。`
+};
+
+/* ════════════════════════════════════════════
+   CORE
+   ════════════════════════════════════════════ */
+let selectedStyle = "formal";
+let currentReply = "";
+let conversationHistory = JSON.parse(localStorage.getItem("reply_history") || "[]");
+
+function $(id){ return document.getElementById(id) }
+function toast(txt){
+  const t = $("toast"); t.textContent = txt; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 1400);
+}
+
+function updateCounter(){
+  const n = $("herMessage").value.length;
+  $("charCount").textContent = n;
+  $("charCount").parentElement.classList.toggle("over", n > 1000);
+}
+
+// 風格選擇
+document.querySelectorAll(".style-opt").forEach(el => {
+  el.addEventListener("click", () => {
+    document.querySelectorAll(".style-opt").forEach(e => e.classList.remove("active"));
+    el.classList.add("active");
+    selectedStyle = el.dataset.style;
+    $("customPanel").classList.toggle("show", selectedStyle === "custom");
+  });
+});
+document.querySelector(".style-opt[data-style='formal']").classList.add("active");
+
+$("herMessage").addEventListener("input", updateCounter);
+
+function buildPrompt(style, her, ctx, extras = "") {
+  let sys = STYLE_PROMPTS[style] || STYLE_PROMPTS.formal;
+  if (style === "custom") {
+    const custom = $("customStyle").value.trim() || "友善自然";
+    sys = `使用者要「${custom}」風格的回覆。給 3 個版本，每版一行直接寫出可用的訊息、不要解釋、不要編號標示。`;
+  }
+  let user = `對方訊息：「${her}」`;
+  if (ctx && ctx.trim()) {
+    user += `\n\n使用者的處境：${ctx.trim()}`;
+  }
+  if (extras) {
+    user += `\n\n使用者的修正要求：${extras}`;
+  }
+  user += `\n\n請直接輸出 3 個版本，每個版本一行，不要解釋、不要前言。語言用繁體中文。`;
+  return [
+    { role: "system", content: sys },
+    { role: "user", content: user }
+  ];
+}
+
+async function callBackend(messages) {
+  const r = await fetch(API_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Reply-Token": "*** m6c-yuan-2026"
+    },
+    body: JSON.stringify({ model: MODEL, messages })
+  });
+  if (!r.ok) {
+    const err = await r.text();
+    throw new Error("HTTP " + r.status + ": " + err.slice(0, 300));
+  }
+  const data = await r.json();
+  return data.content;
+}
+
+async function generate(extras = "") {
+  const her = $("herMessage").value.trim();
+  const ctx = $("myContext").value.trim();
+  if (!her) { toast("請先貼上對方訊息"); return; }
+  if (!API_KEY) { toast("API Key 尚未設定，看程式碼頂端 CONFIG"); return; }
+
+  $("resultPanel").classList.add("show");
+  $("resultBox").className = "result-box empty";
+  $("resultBox").textContent = "AI 思考中…";
+  $("generateBtn").disabled = true;
+
+  try {
+    const messages = buildPrompt(selectedStyle, her, ctx, extras);
+    const reply = await callBackend(messages);
+    currentReply = reply.trim();
+    $("resultBox").textContent = currentReply;
+    $("resultBox").className = "result-box";
+    $("resultBox").scrollIntoView({behavior:"smooth", block:"start"});
+  } catch (e) {
+    $("resultBox").textContent = "❌ " + e.message + "\n\n（提醒：本機測試需先啟動後端，部署到 Vercel 後自動運行）";
+  } finally {
+    $("generateBtn").disabled = false;
+  }
+}
+
+$("generateBtn").addEventListener("click", () => generate());
+$("regenBtn").addEventListener("click", () => generate());
+$("refineBtn").addEventListener("click", () => {
+  const txt = $("refineInput").value.trim();
+  if (txt) { generate(txt); $("refineInput").value = ""; }
+});
+$("refineInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") $("refineBtn").click();
+});
+
+$("copyBtn").addEventListener("click", async () => {
+  if (!currentReply) return;
+  try {
+    // 只複製第一個版本（第一行）
+    const firstLine = currentReply.split("\n").filter(l => l.trim())[0] || currentReply;
+    await navigator.clipboard.writeText(firstLine.replace(/^[0-9]+[\.\)、]\s*/, ""));
+    toast("已複製第一版");
+    $("copyBtn").classList.add("copied");
+    setTimeout(() => $("copyBtn").classList.remove("copied"), 1200);
+  } catch { toast("複製失敗"); }
+});
+
+$("saveBtn").addEventListener("click", () => {
+  if (!currentReply) return;
+  const her = $("herMessage").value.trim();
+  const styleLabel = (STYLE_PROMPTS[selectedStyle] ? selectedStyle : "custom");
+  const entry = {
+    id: Date.now(),
+    time: new Date().toLocaleString("zh-TW", {hour12:false}),
+    style: styleLabel,
+    question: her.slice(0, 60),
+    answer: currentReply.slice(0, 100)
+  };
+  conversationHistory.unshift(entry);
+  if (conversationHistory.length > 10) conversationHistory.pop();
+  localStorage.setItem("reply_history", JSON.stringify(conversationHistory));
+  renderHistory();
+  toast("已存到歷史");
+});
+
+$("clearBtn").addEventListener("click", () => {
+  $("herMessage").value = "";
+  $("myContext").value = "";
+  updateCounter();
+  $("resultPanel").classList.remove("show");
+  currentReply = "";
+});
+
+function renderHistory() {
+  const list = $("historyList");
+  if (!conversationHistory.length) {
+    list.innerHTML = `<div style="color:var(--muted);font-size:13px;text-align:center;padding:14px">
+      還沒有歷史記錄</div>`;
+    return;
+  }
+  list.innerHTML = conversationHistory.map(e => `
+    <div class="hist-row" data-id="${e.id}">
+      <div class="meta">
+        <span>${e.time} · 風格:${e.style}</span>
+        <span style="color:var(--accent)">#${e.id}</span>
+      </div>
+      <div class="q">問: ${escapeHtml(e.question)}</div>
+      <div class="a">答: ${escapeHtml(e.answer)}…</div>
+    </div>
+  `).join("");
+  document.querySelectorAll(".hist-row").forEach(el => {
+    el.addEventListener("click", () => {
+      const id = parseInt(el.dataset.id);
+      const entry = conversationHistory.find(e => e.id === id);
+      if (entry) {
+        $("herMessage").value = entry.question.replace(/\.\.\.$/, "");
+        $("resultBox").textContent = entry.answer;
+        $("resultBox").className = "result-box";
+        $("resultPanel").classList.add("show");
+        updateCounter();
+      }
+    });
+  });
+}
+
+function escapeHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;") }
+
+// init
+renderHistory();
+updateCounter();
+</script>
+</body>
+</html>
