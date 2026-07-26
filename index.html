@@ -361,9 +361,13 @@ async function generate(extras = "") {
     currentReply = reply.trim();
     $("resultBox").textContent = currentReply;
     $("resultBox").className = "result-box";
+    $("resultPanel").classList.add("show");
     $("resultBox").scrollIntoView({behavior:"smooth", block:"start"});
   } catch (e) {
+    console.error("Generate error:", e);
     $("resultBox").textContent = "❌ " + e.message + "\n\n（提醒：本機測試需先啟動後端，部署到 Vercel 後自動運行）";
+    $("resultBox").className = "result-box";
+    $("resultPanel").classList.add("show");
   } finally {
     $("generateBtn").disabled = false;
   }
