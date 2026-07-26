@@ -10,7 +10,6 @@ const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "*";
 const REPLY_TOKEN = process.env.REPLY_TOKEN || "";
 
 // 簡易 in-memory 限流（每分鐘每 IP 5 次）
-// Vercel 跨實例會失去狀態, 但對防一般濫用已足夠
 const rateLimit = new Map();
 const RATE_LIMIT_PER_MIN = 5;
 
@@ -31,7 +30,7 @@ const STYLE_PROMPTS = {
   wise: `你是「有智慧」回覆專家。給使用者 3 個版本，語言有深度、有隱喻或金句感。用簡短一句讓人回味。不浮誇、不油膩。適合：想讓對方覺得你「有想法」、不一般的人。`,
   humor: `你是「幽默風趣」回覆專家。給使用者 3 個版本，輕鬆、自嘲、會玩諧音或腦筋急轉彎。不低俗、不冒犯。讓對方笑出來或會心一笑。適合：朋友、戀人日常、化解尷尬。`,
   flirty: `你是「曖昧挑逗」回覆專家。給使用者 3 個版本，語氣曖昧、心跳感、留伏筆讓對方想回。不要太露骨、保持神秘與克制。適合：曖昧期、想升溫關係。`,
-  custom: ``  // 自訂風格 prompt 會在下面拼接
+  custom: ``
 };
 
 function buildMessages(body) {
@@ -52,7 +51,6 @@ function buildMessages(body) {
 }
 
 module.exports = async function handler(req, res) {
-  // CORS
   res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Reply-Token");
@@ -61,7 +59,6 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Token 驗證（如果有設 REPLY_TOKEN 環境變數）
   if (REPLY_TOKEN) {
     const clientToken = req.headers["x-reply-token"];
     if (clientToken !== REPLY_TOKEN) {
@@ -69,52 +66,64 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  // 限流
   const ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "anon").split(",")[0].trim();
   if (!checkRate(ip)) {
     return res.status(429).json({ error: "Rate limit exceeded (5/min)" });
   }
 
-  // 解析 body
   const body = req.body || {};
   const { model = "MiniMax-M3", messages } = body;
-  let finalMessages = messages;
   if (!Array.isArray(messages)) {
     return res.status(400).json({ error: "messages array required" });
   }
 
-  // 呼叫 MiniMax
   const apiKey = process.env.MINIMAX_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: "Server not configured: MINIMAX_API_KEY missing" });
   }
 
-  try {
-    const r = await fetch("https://api.minimaxi.com/v1/text/chatcompletion_v2", {
-      method: "POST",
-      headers: {
-        "Authorization": "Bearer " + apiKey,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: finalMessages,
-        temperature: 0.95,
-        max_tokens: 1024
-      })
-    });
-    if (!r.ok) {
-      const err = await r.text();
-      return res.status(502).json({ error: "Upstream error", detail: err.slice(0, 1000) });
+  // MiniMax API 嘗試多個端點（native + OpenAI-compatible）
+  const endpoints = [
+    "https://api.minimax.io/v1/text/chatcompletion_v2",
+    "https://api.minimax.io/v1/chat/completions",
+  ];
+
+  const tried = [];
+  for (const url of endpoints) {
+    tried.push(url);
+    try {
+      const r = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + apiKey,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: messages,
+          temperature: 0.95,
+          max_tokens: 1024
+        })
+      });
+      if (!r.ok) {
+        const err = await r.text();
+        // 2049 = invalid api key → 換下一個 endpoint
+        if (err.includes("2049")) continue;
+        return res.status(502).json({ error: "Upstream error", endpoint: url, detail: err.slice(0, 800) });
+      }
+      const data = await r.json();
+      if (!data.choices || data.choices.length === 0) continue;
+      const content = data.choices[0].message?.content || data.choices[0].text || "";
+      if (!content) continue;
+      return res.status(200).json({
+        content,
+        usage: data.usage || null,
+        endpoint: url,
+        raw_status: data.choices[0].finish_reason
+      });
+    } catch (e) {
+      continue;
     }
-    const data = await r.json();
-    // Debug 版：把整個 upstream response 印出來
-    if (!data.choices || data.choices.length === 0) {
-      return res.status(502).json({ error: "No choices in response", raw: data });
-    }
-    const content = data.choices[0].message?.content || data.choices[0].text || "";
-    return res.status(200).json({ content, usage: data.usage || null, raw_status: data.choices[0].finish_reason });
-  } catch (e) {
-    return res.status(500).json({ error: "Internal: " + e.message });
   }
+  return res.status(502).json({ error: "All endpoints failed or returned empty", tried });
 };
