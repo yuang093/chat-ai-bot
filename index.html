@@ -348,7 +348,7 @@ async function generate(extras = "") {
   const her = $("herMessage").value.trim();
   const ctx = $("myContext").value.trim();
   if (!her) { toast("請先貼上對方訊息"); return; }
-  if (!API_KEY) { toast("API Key 尚未設定，看程式碼頂端 CONFIG"); return; }
+  // (改用後端, 本機不需要 API Key)
 
   $("resultPanel").classList.add("show");
   $("resultBox").className = "result-box empty";
