@@ -105,11 +105,15 @@ module.exports = async function handler(req, res) {
     });
     if (!r.ok) {
       const err = await r.text();
-      return res.status(502).json({ error: "Upstream error", detail: err.slice(0, 500) });
+      return res.status(502).json({ error: "Upstream error", detail: err.slice(0, 1000) });
     }
     const data = await r.json();
-    const content = data.choices?.[0]?.message?.content || "";
-    return res.status(200).json({ content, usage: data.usage || null });
+    // Debug 版：把整個 upstream response 印出來
+    if (!data.choices || data.choices.length === 0) {
+      return res.status(502).json({ error: "No choices in response", raw: data });
+    }
+    const content = data.choices[0].message?.content || data.choices[0].text || "";
+    return res.status(200).json({ content, usage: data.usage || null, raw_status: data.choices[0].finish_reason });
   } catch (e) {
     return res.status(500).json({ error: "Internal: " + e.message });
   }

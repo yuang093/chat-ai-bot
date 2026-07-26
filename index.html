@@ -324,15 +324,23 @@ async function callBackend(messages) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Reply-Token": "*** m6c-yuan-2026"
+      "X-Reply-Token": "m6c-yuan-2026"
     },
     body: JSON.stringify({ model: MODEL, messages })
   });
+  const data = await r.json().catch(() => ({}));
   if (!r.ok) {
-    const err = await r.text();
-    throw new Error("HTTP " + r.status + ": " + err.slice(0, 300));
+    throw new Error(
+      "HTTP " + r.status + " | " + (data.error || "Unknown") +
+      (data.detail ? " | " + data.detail.slice(0, 200) : "")
+    );
   }
-  const data = await r.json();
+  if (!data.content) {
+    throw new Error(
+      "API 回傳空內容 (status=" + r.status + ") | " +
+      JSON.stringify(data).slice(0, 300)
+    );
+  }
   return data.content;
 }
 
