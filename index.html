@@ -158,6 +158,41 @@
   .vc-like:hover{border-color:var(--good);color:var(--good)}
   .vc-dislike:hover{border-color:var(--accent);color:var(--accent-2)}
 
+  /* 心理解讀卡片 */
+  .insight-card{
+    background:linear-gradient(135deg,rgba(167,139,250,.12),rgba(34,211,238,.10));
+    border:1px solid rgba(167,139,250,.4);
+    border-left:4px solid var(--violet);
+    border-radius:12px;
+    padding:14px 16px;
+    margin-top:12px;
+    animation:insight-glow 2.5s ease-in-out infinite;
+  }
+  @keyframes insight-glow{
+    0%,100%{box-shadow:0 0 0 rgba(167,139,250,0)}
+    50%{box-shadow:0 0 18px rgba(167,139,250,.18)}
+  }
+  .insight-header{
+    display:flex;align-items:center;gap:8px;
+    margin-bottom:8px;font-size:12px;font-weight:700;
+    color:var(--violet);letter-spacing:.04em;
+  }
+  .insight-header .icon{font-size:16px}
+  .insight-body{
+    color:var(--ink);font-size:14px;line-height:1.7;
+    white-space:pre-wrap;
+  }
+  .insight-confidence{
+    margin-top:10px;font-size:11px;color:var(--muted);
+    display:flex;align-items:center;gap:6px;
+  }
+  .insight-confidence .dot{
+    display:inline-block;width:8px;height:8px;border-radius:50%;
+  }
+  .insight-confidence .dot.high{background:var(--good)}
+  .insight-confidence .dot.med{background:var(--warn)}
+  .insight-confidence .dot.low{background:var(--accent)}
+
   /* 動作列 */
   .actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
   .btn-mini{padding:8px 14px;background:var(--surface-2);color:var(--ink);
@@ -467,7 +502,7 @@ async function callBackend(params) {
   if (!data.versions || data.versions.length === 0) {
     throw new Error("AI 沒有回應，請再試一次");
   }
-  return data.versions;
+  return data;  // 回傳完整 { versions, insight, usage }
 }
 
 async function generate(extras = "") {
@@ -480,7 +515,7 @@ async function generate(extras = "") {
   $("generateBtn").disabled = true;
 
   try {
-    const versions = await callBackend({
+    const result = await callBackend({
       style: selectedStyle,
       her: her,
       ctx: ctx,
@@ -488,8 +523,8 @@ async function generate(extras = "") {
       customStyle: $("customStyle").value,
       tags: selectedTags
     });
-    currentVersions = versions;
-    renderVersions(versions);
+    currentVersions = result.versions;
+    renderVersions(result.versions, result.insight);
     $("resultPanel").scrollIntoView({behavior:"smooth", block:"start"});
   } catch (e) {
     console.error("Generate error:", e);
@@ -499,11 +534,41 @@ async function generate(extras = "") {
   }
 }
 
-// 渲染 3 個版本卡片
-function renderVersions(versions) {
+// 渲染 3 個版本卡片 + 心理解讀
+function renderVersions(versions, insight) {
   const labels = ["A", "B", "C"];
   const colors = ["primary", "pink", "cyan"];
-  const html = versions.map((v, i) => `
+
+  // 解讀信心評估（根據啟發式）
+  let confidence = "high";
+  let confidenceLabel = "解讀信心：🟢 明確";
+  if (insight) {
+    const low = /不清楚|無法判斷|可能是|也許|模糊/i.test(insight);
+    const med = /可能|應該|似乎|大概/i.test(insight);
+    if (low) { confidence = "low"; confidenceLabel = "解讀信心：🔴 模糊"; }
+    else if (med) { confidence = "med"; confidenceLabel = "解讀信心：🟡 中等"; }
+  }
+
+  // 心理解讀卡片
+  let insightHtml = "";
+  if (insight) {
+    insightHtml = `
+      <div class="insight-card">
+        <div class="insight-header">
+          <span class="icon">💡</span>
+          <span>心理與情境解讀</span>
+        </div>
+        <div class="insight-body">${escapeHtml(insight)}</div>
+        <div class="insight-confidence">
+          <span class="dot ${confidence}"></span>
+          <span>${confidenceLabel}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // 3 個版本卡片
+  const versionsHtml = versions.map((v, i) => `
     <div class="version-card" data-idx="${i}">
       <div class="vc-header">
         <span class="vc-label label-${colors[i % 3]}">版本 ${labels[i] || (i + 1)}</span>
@@ -518,7 +583,8 @@ function renderVersions(versions) {
       </div>
     </div>
   `).join("");
-  $("versionCards").innerHTML = html;
+
+  $("versionCards").innerHTML = insightHtml + versionsHtml;
 
   document.querySelectorAll(".vc-copy").forEach(btn => {
     btn.addEventListener("click", () => copyVersion(versions[parseInt(btn.dataset.idx)]));

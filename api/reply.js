@@ -73,7 +73,16 @@ function buildMessages(body) {
   if (ctx && ctx.trim()) user += `\n\n使用者的處境：${ctx.trim().slice(0, 500)}`;
   if (extras && extras.trim()) user += `\n\n使用者的修正要求：${extras.trim().slice(0, 500)}`;
   user += tagAddition;
-  user += `\n\n請直接輸出 3 個版本，每個版本一行，不要解釋、不要前言。語言用繁體中文。`;
+  user += `\n\n請依序輸出兩部分，用以下標籤嚴格分隔：
+<INSIGHT>1~2 句話分析對方這句話的表面意思、潛台詞、情緒狀態（撒嬌/抱怨/試探/緊張/冷淡…等），以及建議用哪種風格回應最合適</INSIGHT>
+
+<VERSIONS>
+版本1
+版本2
+版本3
+</VERSIONS>
+
+風格要符合「${sys.split('，')[0]}」。語言用繁體中文。每個版本獨立一行，不要編號標示。`;
 
   return [
     { role: "system", content: sys },
@@ -81,23 +90,56 @@ function buildMessages(body) {
   ];
 }
 
-// 文本解析 3 個版本（多重 fallback）
-function parseVersions(text) {
-  if (!text) return [];
-  // 1. 嘗試按換行分割
-  const lines = text.split(/\n+/).map(l => l.trim()).filter(l => l.length > 0);
-  if (lines.length >= 3) return lines.slice(0, 3);
+// 完整回應解析（拆解 INSIGHT + VERSIONS）
+function parseFullResponse(text) {
+  if (!text) return { insight: null, versions: [] };
 
-  // 2. 嘗試按數字標點分割 (1. 2. 3. 或 1) 2) 3))
-  const numbered = text.split(/\s*[1-3][\.\)、]\s*/).map(l => l.trim()).filter(l => l.length > 5);
-  if (numbered.length >= 3) return numbered.slice(0, 3);
+  let insight = null;
+  let body = text;
 
-  // 3. 單一長文本：按句號分割
-  const sentences = text.split(/(?<=[。！？!?])\s*/).filter(l => l.length > 5);
-  if (sentences.length >= 3) return sentences.slice(0, 3);
+  // 1. 嘗試拆 <INSIGHT> 標籤
+  const insightMatch = text.match(/<INSIGHT>([\s\S]*?)<\/INSIGHT>/i);
+  if (insightMatch) {
+    insight = insightMatch[1].trim();
+    body = text.replace(/<INSIGHT>[\s\S]*?<\/INSIGHT>/i, "").trim();
+  }
 
-  // 4. 真的沒有, 一個版本
-  return [text];
+  // 2. 嘗試拆 <VERSIONS> 標籤
+  const versionsMatch = body.match(/<VERSIONS>([\s\S]*?)<\/VERSIONS>/i);
+  if (versionsMatch) {
+    body = versionsMatch[1].trim();
+  }
+
+  // 3. 解析 3 個版本
+  const lines = body.split(/\n+/).map(l => l.trim()).filter(l => l.length > 0);
+  let versionTexts = [];
+  if (lines.length >= 3) {
+    versionTexts = lines.slice(0, 3);
+  } else {
+    // 4. fallback: 按數字標點分割
+    const numbered = body.split(/\s*[1-3][\.\)、]\s*/).map(l => l.trim()).filter(l => l.length > 5);
+    if (numbered.length >= 3) {
+      versionTexts = numbered.slice(0, 3);
+    } else {
+      // 5. fallback: 按句號分割
+      const sentences = body.split(/(?<=[。！？!?])\s*/).filter(l => l.length > 5);
+      if (sentences.length >= 3) {
+        versionTexts = sentences.slice(0, 3);
+      } else {
+        versionTexts = body.length > 0 ? [body] : [];
+      }
+    }
+  }
+
+  // 過濾掉仍是標籤殘留的版本
+  versionTexts = versionTexts
+    .map(t => t.replace(/^<VERSIONS>|<\/VERSIONS>$/gi, "").trim())
+    .filter(t => t.length > 0 && !/^<[A-Z]+>$/.test(t));
+
+  return {
+    insight: insight,
+    versions: versionTexts
+  };
 }
 
 // 標籤決策（自動給每版加上標籤）
@@ -244,18 +286,23 @@ module.exports = async function handler(req, res) {
         continue;
       }
 
-      // 解析 3 個版本
-      const versionTexts = parseVersions(content);
-      const versions = versionTexts.map(text => ({
+      // 解析完整回應（拆解 INSIGHT + VERSIONS）
+      const parsed = parseFullResponse(content);
+      const versions = parsed.versions.map(text => ({
         text: text,
         tag: autoTagVersion(text),
         charCount: text.length,
       }));
 
-      log("info", "Success", { endpoint: url, versionCount: versions.length });
+      log("info", "Success", {
+        endpoint: url,
+        hasInsight: !!parsed.insight,
+        versionCount: versions.length
+      });
 
       return res.status(200).json({
         versions: versions,
+        insight: parsed.insight,  // 新欄位：心理解讀
         usage: data.usage || null,
       });
     } catch (e) {
