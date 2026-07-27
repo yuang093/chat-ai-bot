@@ -75,6 +75,23 @@
   .style-opt .name{font-weight:700;font-size:13px}
   .style-opt .hint{font-size:10px;color:var(--muted);margin-top:3px}
 
+  /* 場景標籤 (多選) */
+  .tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .tag-opt{
+    background:var(--surface-2);
+    border:1px solid var(--line);
+    color:var(--ink-2);
+    padding:7px 13px;border-radius:99px;
+    font-size:13px;font-weight:600;cursor:pointer;
+    display:inline-flex;gap:6px;align-items:center;
+    transition:all .15s;
+  }
+  .tag-opt:hover{border-color:var(--primary);color:var(--ink)}
+  .tag-opt.active{
+    background:linear-gradient(135deg,rgba(125,151,255,.18),rgba(236,72,153,.18));
+    border-color:var(--primary);color:var(--ink);
+  }
+
   /* 第 6 格自訂風格 */
   .style-opt.custom{background:linear-gradient(135deg,var(--surface-2),var(--surface-2));}
 
@@ -99,6 +116,47 @@
     white-space:pre-wrap;line-height:1.7;font-size:15px;color:var(--ink);
     min-height:80px;font-family:inherit;}
   .result-box.empty{display:flex;align-items:center;justify-content:center;color:var(--muted);}
+
+  /* 版本卡片 (3 個獨立) */
+  .version-card{
+    background:var(--surface-2);
+    border:1px solid var(--line);
+    border-left:4px solid var(--primary);
+    border-radius:12px;
+    padding:14px 16px;
+    margin-top:12px;
+    transition:border .15s, transform .15s;
+  }
+  .version-card:hover{border-color:var(--primary-2); transform:translateY(-1px)}
+  .version-card[data-idx="1"]{border-left-color:var(--pink)}
+  .version-card[data-idx="2"]{border-left-color:var(--cyan)}
+  .vc-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px}
+  .vc-label{font-weight:800;letter-spacing:.06em;padding:3px 10px;border-radius:99px;color:#0e1424;}
+  .label-primary{background:linear-gradient(135deg,var(--primary),var(--primary-2))}
+  .label-pink{background:linear-gradient(135deg,var(--pink),#f9a8d4)}
+  .label-cyan{background:linear-gradient(135deg,var(--cyan),#67e8f9)}
+  .vc-tag{
+    background:rgba(255,255,255,.06);
+    color:var(--ink-2);
+    padding:3px 9px;border-radius:99px;font-weight:600;
+  }
+  .vc-len{margin-left:auto;color:var(--muted);font-size:11px}
+  .vc-body{
+    line-height:1.75;font-size:15px;color:var(--ink);
+    margin-bottom:12px;white-space:pre-wrap;
+  }
+  .vc-actions{display:flex;gap:6px;flex-wrap:wrap}
+  .vc-btn{
+    padding:6px 12px;background:transparent;color:var(--ink-2);
+    border:1px solid var(--line);border-radius:7px;
+    font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;
+    transition:all .15s;
+  }
+  .vc-btn:hover{border-color:var(--primary);color:var(--primary-2)}
+  .vc-btn.voted{background:var(--good);color:#0e1424;border-color:var(--good);transform:scale(1.05)}
+  .vc-copy:hover{border-color:var(--cyan);color:var(--cyan)}
+  .vc-like:hover{border-color:var(--good);color:var(--good)}
+  .vc-dislike:hover{border-color:var(--accent);color:var(--accent-2)}
 
   /* 動作列 */
   .actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
@@ -205,6 +263,25 @@
     <div class="lbl" style="margin-top:14px">✨ 自訂風格描述</div>
     <input type="text" id="customStyle" placeholder="例：撒嬌一點 / 故意冷淡 / 老江湖世故">
   </div>
+
+  <div class="lbl" style="margin-top:18px">🏷️ 對方是誰？(可複選)</div>
+  <div class="tags" id="tags">
+    <div class="tag-opt" data-tag="flavored">
+      <span>💕</span><span>曖昧對象</span>
+    </div>
+    <div class="tag-opt" data-tag="work">
+      <span>💼</span><span>工作 / 客戶</span>
+    </div>
+    <div class="tag-opt" data-tag="family">
+      <span>👨‍👩‍👧</span><span>家人 / 長輩</span>
+    </div>
+    <div class="tag-opt" data-tag="friend">
+      <span>😊</span><span>普通朋友</span>
+    </div>
+    <div class="tag-opt" data-tag="strangers">
+      <span>🤝</span><span>不太熟</span>
+    </div>
+  </div>
 </section>
 
 <button class="btn-primary" id="generateBtn">🚀 幫我想回覆</button>
@@ -214,12 +291,12 @@
   <div class="toolbar">
     <button class="tool-btn" id="clearBtn">🗑 清空</button>
   </div>
-  <div class="lbl">🎁 AI 建議回覆</div>
-  <div class="result-box" id="resultBox"></div>
+  <div class="lbl">🎁 AI 建議回覆（點 📋 複製，👎/👍 記住你的偏好）</div>
+  <div id="versionCards"></div>
 
   <div class="actions">
-    <button class="btn-mini" id="regenBtn">🔄 再來一個版本</button>
-    <button class="btn-mini" id="copyBtn">📋 複製</button>
+    <button class="btn-mini" id="regenBtn">🔄 再來一組</button>
+    <button class="btn-mini" id="copyBtn">📋 複製全部</button>
     <button class="btn-mini" id="saveBtn">💾 存到歷史</button>
   </div>
 
@@ -271,7 +348,8 @@ const STYLE_PROMPTS = {
    CORE
    ════════════════════════════════════════════ */
 let selectedStyle = "formal";
-let currentReply = "";
+let selectedTags = [];
+let currentVersions = [];
 let conversationHistory = JSON.parse(localStorage.getItem("reply_history") || "[]");
 
 function $(id){ return document.getElementById(id) }
@@ -297,6 +375,19 @@ document.querySelectorAll(".style-opt").forEach(el => {
 });
 document.querySelector(".style-opt[data-style='formal']").classList.add("active");
 
+// 場景標籤 (多選)
+document.querySelectorAll(".tag-opt").forEach(el => {
+  el.addEventListener("click", () => {
+    el.classList.toggle("active");
+    const tag = el.dataset.tag;
+    if (el.classList.contains("active")) {
+      if (!selectedTags.includes(tag)) selectedTags.push(tag);
+    } else {
+      selectedTags = selectedTags.filter(t => t !== tag);
+    }
+  });
+});
+
 $("herMessage").addEventListener("input", updateCounter);
 
 function buildPrompt(style, her, ctx, extras = "") {
@@ -319,58 +410,111 @@ function buildPrompt(style, her, ctx, extras = "") {
   ];
 }
 
-async function callBackend(messages) {
+async function callBackend(params) {
   const r = await fetch(API_ENDPOINT, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-Reply-Token": "m6c-yuan-2026"
     },
-    body: JSON.stringify({ model: MODEL, messages })
+    body: JSON.stringify({ model: MODEL, ...params })
   });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) {
-    throw new Error(
-      "HTTP " + r.status + " | " + (data.error || "Unknown") +
-      (data.detail ? " | " + data.detail.slice(0, 200) : "")
-    );
+    throw new Error(data.error || ("HTTP " + r.status));
   }
-  if (!data.content) {
-    throw new Error(
-      "API 回傳空內容 (status=" + r.status + ") | " +
-      JSON.stringify(data).slice(0, 300)
-    );
+  if (!data.versions || data.versions.length === 0) {
+    throw new Error("AI 沒有回應，請再試一次");
   }
-  return data.content;
+  return data.versions;
 }
 
 async function generate(extras = "") {
   const her = $("herMessage").value.trim();
   const ctx = $("myContext").value.trim();
   if (!her) { toast("請先貼上對方訊息"); return; }
-  // (改用後端, 本機不需要 API Key)
 
   $("resultPanel").classList.add("show");
-  $("resultBox").className = "result-box empty";
-  $("resultBox").textContent = "AI 思考中…";
+  $("versionCards").innerHTML = `<div class="result-box empty">AI 思考中…</div>`;
   $("generateBtn").disabled = true;
 
   try {
-    const messages = buildPrompt(selectedStyle, her, ctx, extras);
-    const reply = await callBackend(messages);
-    currentReply = reply.trim();
-    $("resultBox").textContent = currentReply;
-    $("resultBox").className = "result-box";
-    $("resultPanel").classList.add("show");
-    $("resultBox").scrollIntoView({behavior:"smooth", block:"start"});
+    const versions = await callBackend({
+      style: selectedStyle,
+      her: her,
+      ctx: ctx,
+      extras: extras,
+      customStyle: $("customStyle").value,
+      tags: selectedTags
+    });
+    currentVersions = versions;
+    renderVersions(versions);
+    $("resultPanel").scrollIntoView({behavior:"smooth", block:"start"});
   } catch (e) {
     console.error("Generate error:", e);
-    $("resultBox").textContent = "❌ " + e.message + "\n\n（提醒：本機測試需先啟動後端，部署到 Vercel 後自動運行）";
-    $("resultBox").className = "result-box";
-    $("resultPanel").classList.add("show");
+    $("versionCards").innerHTML = `<div class="result-box" style="color:var(--accent)">❌ ${escapeHtml(e.message)}</div>`;
   } finally {
     $("generateBtn").disabled = false;
   }
+}
+
+// 渲染 3 個版本卡片
+function renderVersions(versions) {
+  const labels = ["A", "B", "C"];
+  const colors = ["primary", "pink", "cyan"];
+  const html = versions.map((v, i) => `
+    <div class="version-card" data-idx="${i}">
+      <div class="vc-header">
+        <span class="vc-label label-${colors[i % 3]}">版本 ${labels[i] || (i + 1)}</span>
+        <span class="vc-tag">${escapeHtml(v.tag)}</span>
+        <span class="vc-len">${v.charCount} 字</span>
+      </div>
+      <div class="vc-body">${escapeHtml(v.text)}</div>
+      <div class="vc-actions">
+        <button class="vc-btn vc-copy" data-idx="${i}">📋 複製</button>
+        <button class="vc-btn vc-like" data-idx="${i}">👍</button>
+        <button class="vc-btn vc-dislike" data-idx="${i}">👎</button>
+      </div>
+    </div>
+  `).join("");
+  $("versionCards").innerHTML = html;
+
+  document.querySelectorAll(".vc-copy").forEach(btn => {
+    btn.addEventListener("click", () => copyVersion(versions[parseInt(btn.dataset.idx)]));
+  });
+  document.querySelectorAll(".vc-like").forEach(btn => {
+    btn.addEventListener("click", () => voteVersion(versions[parseInt(btn.dataset.idx)], "like", btn));
+  });
+  document.querySelectorAll(".vc-dislike").forEach(btn => {
+    btn.addEventListener("click", () => voteVersion(versions[parseInt(btn.dataset.idx)], "dislike", btn));
+  });
+}
+
+async function copyVersion(v) {
+  if (!v) return;
+  try {
+    await navigator.clipboard.writeText(v.text);
+    toast("已複製「" + v.tag + "」版本");
+  } catch { toast("複製失敗"); }
+}
+
+function voteVersion(v, vote, btn) {
+  const entry = {
+    timestamp: Date.now(),
+    style: selectedStyle,
+    tags: selectedTags,
+    tag: v.tag,
+    text: v.text.slice(0, 200),
+    vote: vote
+  };
+  let ratings = JSON.parse(localStorage.getItem("reply_ratings") || "[]");
+  ratings.push(entry);
+  if (ratings.length > 200) ratings = ratings.slice(-200);
+  localStorage.setItem("reply_ratings", JSON.stringify(ratings));
+
+  btn.classList.add("voted");
+  setTimeout(() => btn.classList.remove("voted"), 1500);
+  toast(vote === "like" ? "👍 記住了" : "👎 記住了");
 }
 
 $("generateBtn").addEventListener("click", () => generate());
@@ -384,27 +528,27 @@ $("refineInput").addEventListener("keydown", e => {
 });
 
 $("copyBtn").addEventListener("click", async () => {
-  if (!currentReply) return;
+  if (!currentVersions || currentVersions.length === 0) return;
   try {
-    // 只複製第一個版本（第一行）
-    const firstLine = currentReply.split("\n").filter(l => l.trim())[0] || currentReply;
-    await navigator.clipboard.writeText(firstLine.replace(/^[0-9]+[\.\)、]\s*/, ""));
-    toast("已複製第一版");
+    const all = currentVersions.map(v => v.text).join("\n");
+    await navigator.clipboard.writeText(all);
+    toast("已複製全部 3 個版本");
     $("copyBtn").classList.add("copied");
     setTimeout(() => $("copyBtn").classList.remove("copied"), 1200);
   } catch { toast("複製失敗"); }
 });
 
 $("saveBtn").addEventListener("click", () => {
-  if (!currentReply) return;
+  if (!currentVersions || currentVersions.length === 0) return;
   const her = $("herMessage").value.trim();
   const styleLabel = (STYLE_PROMPTS[selectedStyle] ? selectedStyle : "custom");
   const entry = {
     id: Date.now(),
     time: new Date().toLocaleString("zh-TW", {hour12:false}),
     style: styleLabel,
+    tags: selectedTags,
     question: her.slice(0, 60),
-    answer: currentReply.slice(0, 100)
+    answers: currentVersions.map(v => ({tag: v.tag, text: v.text.slice(0, 60)}))
   };
   conversationHistory.unshift(entry);
   if (conversationHistory.length > 10) conversationHistory.pop();
@@ -418,7 +562,8 @@ $("clearBtn").addEventListener("click", () => {
   $("myContext").value = "";
   updateCounter();
   $("resultPanel").classList.remove("show");
-  currentReply = "";
+  currentVersions = [];
+  $("versionCards").innerHTML = "";
 });
 
 function renderHistory() {
@@ -435,7 +580,7 @@ function renderHistory() {
         <span style="color:var(--accent)">#${e.id}</span>
       </div>
       <div class="q">問: ${escapeHtml(e.question)}</div>
-      <div class="a">答: ${escapeHtml(e.answer)}…</div>
+      <div class="a">答: ${escapeHtml(e.answer || (e.answers && e.answers[0] ? e.answers[0].text : ""))}…</div>
     </div>
   `).join("");
   document.querySelectorAll(".hist-row").forEach(el => {
@@ -444,8 +589,11 @@ function renderHistory() {
       const entry = conversationHistory.find(e => e.id === id);
       if (entry) {
         $("herMessage").value = entry.question.replace(/\.\.\.$/, "");
-        $("resultBox").textContent = entry.answer;
-        $("resultBox").className = "result-box";
+        // 還原 3 版本卡片（如果新格式）
+        if (entry.answers && entry.answers.length > 0) {
+          currentVersions = entry.answers.map(a => ({text: a.text + "...", tag: a.tag, charCount: a.text.length + 3}));
+          renderVersions(currentVersions);
+        }
         $("resultPanel").classList.add("show");
         updateCounter();
       }
