@@ -73,16 +73,17 @@ function buildMessages(body) {
   if (ctx && ctx.trim()) user += `\n\n使用者的處境：${ctx.trim().slice(0, 500)}`;
   if (extras && extras.trim()) user += `\n\n使用者的修正要求：${extras.trim().slice(0, 500)}`;
   user += tagAddition;
-  user += `\n\n請依序輸出兩部分，用以下標籤嚴格分隔：
+  user += `\n\n請依序輸出兩部分，用以下標籤嚴格分隔（注意必須有完整 3 行版本，不要把第 3 行寫成括號內的解釋說明）：
+
 <INSIGHT>1~2 句話分析對方這句話的表面意思、潛台詞、情緒狀態（撒嬌/抱怨/試探/緊張/冷淡…等），以及建議用哪種風格回應最合適</INSIGHT>
 
 <VERSIONS>
-版本1
-版本2
-版本3
+第一行：版本 1
+第二行：版本 2
+第三行：版本 3
 </VERSIONS>
 
-風格要符合「${sys.split('，')[0]}」。語言用繁體中文。每個版本獨立一行，不要編號標示。`;
+每個版本必須是「直接可貼給對方的訊息」一行（不超過 60 字）。風格要符合「${sys.split('，')[0]}」。語言用繁體中文。不要編號標示、不要括號註解。`;
 
   return [
     { role: "system", content: sys },
@@ -135,6 +136,21 @@ function parseFullResponse(text) {
   versionTexts = versionTexts
     .map(t => t.replace(/^<VERSIONS>|<\/VERSIONS>$/gi, "").trim())
     .filter(t => t.length > 0 && !/^<[A-Z]+>$/.test(t));
+
+  // 過濾掉像「（...）」這種解釋性括號開頭的行（AI 偶爾會把第 3 版寫成解釋說明）
+  versionTexts = versionTexts.filter(t => {
+    const trimmed = t.trim();
+    // 純括號開頭且結尾 - 視為解釋說明，剔除
+    if (/^[（(].*[）)]$/.test(trimmed) && !/[一-龥]/.test(trimmed.slice(1, -1).replace(/[（()）]/g, ''))) {
+      return false;
+    }
+    return true;
+  });
+
+  // 確保至少 1 個版本
+  if (versionTexts.length === 0 && body.length > 0) {
+    versionTexts = [body.replace(/^<VERSIONS>|<\/VERSIONS>$/gi, "").trim()];
+  }
 
   return {
     insight: insight,
