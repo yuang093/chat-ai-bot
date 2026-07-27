@@ -182,6 +182,32 @@
   .hist-row .q{color:var(--ink-2);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .hist-row .a{color:var(--ink);font-weight:600}
 
+  /* 偏好分析 */
+  .stat-row{
+    display:grid;grid-template-columns:80px 1fr 60px;gap:8px;
+    align-items:center;padding:5px 0;font-size:13px;
+  }
+  .stat-label{color:var(--ink-2);font-weight:600}
+  .stat-bar{
+    height:8px;background:var(--surface-2);border-radius:4px;
+    overflow:hidden;border:1px solid var(--line);
+  }
+  .stat-bar > div{
+    height:100%;border-radius:4px;
+    background:linear-gradient(90deg,var(--primary),var(--pink));
+  }
+  .stat-bar.dislike > div{background:linear-gradient(90deg,var(--accent),#fb923c)}
+  .stat-count{color:var(--muted);font-size:12px;text-align:right;font-weight:600}
+  .preference-summary{
+    margin-top:14px;padding:12px 14px;
+    background:linear-gradient(135deg,rgba(125,151,255,.08),rgba(236,72,153,.08));
+    border:1px solid var(--line);border-radius:10px;
+    color:var(--ink-2);font-size:13px;line-height:1.6;
+  }
+  .preference-summary strong{color:var(--ink)}
+  .stats-section{margin-top:12px}
+  .stats-section-title{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.08em}
+
   /* 工具列 */
   .toolbar{display:flex;gap:8px;justify-content:flex-end;margin-bottom:14px}
   .tool-btn{font-size:11px;padding:5px 10px;background:transparent;
@@ -314,6 +340,21 @@
     <div style="color:var(--muted);font-size:13px;text-align:center;padding:14px">
       還沒有歷史記錄
     </div>
+  </div>
+</section>
+
+<!-- 偏好分析 -->
+<section class="card" id="analyticsPanel">
+  <div class="lbl">📊 你的偏好分析 <span id="analyticsCount" style="color:var(--muted);font-weight:400"></span></div>
+  <div id="analyticsContent">
+    <div style="color:var(--muted);font-size:13px;text-align:center;padding:14px">
+      還沒有評分資料（給回覆點 👍 或 👎 就會開始學習）
+    </div>
+  </div>
+  <div class="actions" id="analyticsActions" style="display:none">
+    <button class="btn-mini" id="applyPrefsBtn">🎯 自動套用到預設</button>
+    <button class="btn-mini" id="exportBtn">📤 匯出資料</button>
+    <button class="btn-mini" id="resetBtn" style="color:var(--accent-2)">🗑 重置學習</button>
   </div>
 </section>
 
@@ -515,6 +556,7 @@ function voteVersion(v, vote, btn) {
   btn.classList.add("voted");
   setTimeout(() => btn.classList.remove("voted"), 1500);
   toast(vote === "like" ? "👍 記住了" : "👎 記住了");
+  analyzeRatings();  // 即時更新分析
 }
 
 $("generateBtn").addEventListener("click", () => generate());
@@ -566,6 +608,129 @@ $("clearBtn").addEventListener("click", () => {
   $("versionCards").innerHTML = "";
 });
 
+// 偏好分析函式
+function analyzeRatings() {
+  const ratings = JSON.parse(localStorage.getItem("reply_ratings") || "[]");
+  if (ratings.length === 0) {
+    $("analyticsContent").innerHTML = `<div style="color:var(--muted);font-size:13px;text-align:center;padding:14px">還沒有評分資料（給回覆點 👍 或 👎 就會開始學習）</div>`;
+    $("analyticsActions").style.display = "none";
+    $("analyticsCount").textContent = "";
+    return null;
+  }
+
+  const styleLikes = {}, tagLikes = {}, tagDislikes = {};
+  ratings.forEach(r => {
+    if (r.vote === "like") {
+      styleLikes[r.style] = (styleLikes[r.style] || 0) + 1;
+      tagLikes[r.tag] = (tagLikes[r.tag] || 0) + 1;
+    } else {
+      tagDislikes[r.tag] = (tagDislikes[r.tag] || 0) + 1;
+    }
+  });
+
+  const totalLikes = ratings.filter(r => r.vote === "like").length;
+  const totalDislikes = ratings.filter(r => r.vote === "dislike").length;
+  $("analyticsCount").textContent = `(${totalLikes} 👍 / ${totalDislikes} 👎)`;
+  $("analyticsActions").style.display = "flex";
+
+  const renderStats = (obj, type) => {
+    const entries = Object.entries(obj).sort((a, b) => b[1] - a[1]);
+    if (entries.length === 0) return "";
+    const max = entries[0][1];
+    return entries.map(([k, v]) => `
+      <div class="stat-row">
+        <span class="stat-label">${escapeHtml(k)}</span>
+        <div class="stat-bar ${type === 'dislike' ? 'dislike' : ''}">
+          <div style="width:${(v / max) * 100}%"></div>
+        </div>
+        <span class="stat-count">${v}</span>
+      </div>
+    `).join("");
+  };
+
+  const topStyle = Object.entries(styleLikes).sort((a, b) => b[1] - a[1])[0];
+  const topTag = Object.entries(tagLikes).sort((a, b) => b[1] - a[1])[0];
+  const likedTags = Object.entries(tagLikes).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const dislikedTags = Object.entries(tagDislikes).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+  let summary = "<div class=\"preference-summary\">";
+  summary += "<strong>🎯 你的偏好：</strong>";
+  if (topStyle) summary += topStyle[0] + " 風格 ";
+  if (topTag) summary += "+ " + topTag[0] + " 標籤 ";
+  summary += "<br>";
+  if (likedTags.length > 0) summary += "<strong>👍 喜歡：</strong> " + likedTags.map(t => t[0]).join("、") + "<br>";
+  if (dislikedTags.length > 0) summary += "<strong>👎 避免：</strong> " + dislikedTags.map(t => t[0]).join("、");
+  summary += "</div>";
+
+  let html = "";
+  if (Object.keys(styleLikes).length > 0) {
+    html += "<div class=\"stats-section\"><div class=\"stats-section-title\">🎭 風格喜好</div>" + renderStats(styleLikes, 'like') + "</div>";
+  }
+  if (Object.keys(tagLikes).length > 0) {
+    html += "<div class=\"stats-section\"><div class=\"stats-section-title\">🏷️ 標籤喜好</div>" + renderStats(tagLikes, 'like') + "</div>";
+  }
+  if (Object.keys(tagDislikes).length > 0) {
+    html += "<div class=\"stats-section\"><div class=\"stats-section-title\">👎 不喜歡的標籤</div>" + renderStats(tagDislikes, 'dislike') + "</div>";
+  }
+  html += summary;
+  $("analyticsContent").innerHTML = html;
+
+  return {
+    topStyle: topStyle && topStyle[0],
+    topTag: topTag && topTag[0],
+    likedTags: likedTags.map(t => t[0]),
+    dislikedTags: dislikedTags.map(t => t[0])
+  };
+}
+
+$("applyPrefsBtn").addEventListener("click", () => {
+  const prefs = analyzeRatings();
+  if (!prefs) return;
+  if (prefs.topStyle) {
+    document.querySelectorAll(".style-opt").forEach(el => el.classList.remove("active"));
+    const target = document.querySelector('.style-opt[data-style="' + prefs.topStyle + '"]');
+    if (target) {
+      target.classList.add("active");
+      selectedStyle = prefs.topStyle;
+      $("customPanel").classList.toggle("show", selectedStyle === "custom");
+    }
+  }
+  document.querySelectorAll(".tag-opt").forEach(el => el.classList.remove("active"));
+  selectedTags = [];
+  (prefs.likedTags || []).forEach(tag => {
+    const el = document.querySelector('.tag-opt[data-tag="' + tag + '"]');
+    if (el) {
+      el.classList.add("active");
+      selectedTags.push(tag);
+    }
+  });
+  toast("✅ 已套用你的偏好");
+  $("herMessage").focus();
+});
+
+$("exportBtn").addEventListener("click", () => {
+  const data = {
+    exportedAt: new Date().toISOString(),
+    ratings: JSON.parse(localStorage.getItem("reply_ratings") || "[]"),
+    history: JSON.parse(localStorage.getItem("reply_history") || "[]")
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "reply-data-" + Date.now() + ".json";
+  a.click();
+  URL.revokeObjectURL(url);
+  toast("已下載備份檔");
+});
+
+$("resetBtn").addEventListener("click", () => {
+  if (!confirm("確定要清除所有評分資料嗎？歷史記錄會保留。")) return;
+  localStorage.removeItem("reply_ratings");
+  analyzeRatings();
+  toast("已重置學習資料");
+});
+
 function renderHistory() {
   const list = $("historyList");
   if (!conversationHistory.length) {
@@ -605,6 +770,7 @@ function escapeHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").repl
 
 // init
 renderHistory();
+analyzeRatings();
 updateCounter();
 </script>
 </body>
