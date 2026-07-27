@@ -262,8 +262,8 @@ module.exports = async function handler(req, res) {
           model: model,
           messages: messages,
           temperature: 0.95,
-          max_tokens: 1024,
-        }),
+          max_tokens: 2048  // 提高上限避免 AI 寫到一半被切
+        })
       });
 
       if (!r.ok) {
